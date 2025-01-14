@@ -1,0 +1,80 @@
+-- Exploratory Data Analysis
+https://www.kaggle.com/datasets/swaptr/layoffs-2022
+
+-- Here I am diving deep into a variety of columns to see what type of data I can work with, but there is no current goal in mind
+select *
+from layoffs_staging2;
+
+select max(total_laid_off), max(percentage_laid_off)
+from layoffs_staging2;
+
+select *
+from layoffs_staging2
+where percentage_laid_off = 1
+order by funds_raised_millions desc;
+
+select company, sum(total_laid_off)
+from layoffs_staging2
+group by company
+order by 2 desc;
+
+select min(`date`), max(`date`)
+from layoffs_staging2;
+
+select year(`date`), sum(total_laid_off)
+from layoffs_staging2
+group by year(`date`)
+order by 1 desc;
+
+
+-- Here we are looking at the total laid off data by year and month, starting from 2020-03, to 2023-03
+
+select substring(`date`,1,7) as `month`, sum(total_laid_off)
+from layoffs_staging2
+where substring(`date`,1,7) is not null
+group by `month`
+order by 1 asc;
+
+-- here we create a rolling total, to see the sumation of the total laid off per month
+
+with Rolling_Total as
+(select substring(`date`,1,7) as `month`, sum(total_laid_off) as total_off
+from layoffs_staging2
+where substring(`date`,1,7) is not null
+group by `month`
+order by 1 asc
+)
+select `month`, total_off
+, sum(total_off) over(order by `month`) as rolling_total
+from Rolling_Total;
+
+-- now let's look at a company by the year
+
+select company, sum(total_laid_off)
+from layoffs_staging2
+group by company
+order by 2 desc;
+
+-- with this we can see the companies that had lays off by the year, and the total amount.
+-- We see that companies like Amazon had layoffs in both 2022-23, let's try to order this by how many they laid off per year
+
+select company, year(`date`), sum(total_laid_off)
+from layoffs_staging2
+group by company, year(`date`)
+order by 3 desc;
+
+with Company_Year (company, years, total_laid_off) as
+(select company, year(`date`), sum(total_laid_off)
+from layoffs_staging2
+group by company, year(`date`)
+), Company_Year_Rank as
+(select *, 
+dense_rank() over(partition by years order by total_laid_off desc) as ranking
+from Company_Year
+where years is not null
+)
+select *
+from Company_Year_Rank
+where ranking <= 5;
+
+
